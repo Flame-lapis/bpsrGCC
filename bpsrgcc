@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>플람라피스의 길드 납품 효율 계산기</title>
+    <style>
+        :root {
+            --primary-color: #ff3e81; --point-color: #4bffb0; --gold-color: #ffae00; 
+            --npc-color: #00d4ff; --bg-color: #1a1a1b; --card-bg: #2d2d2e; --error-color: #ff4d4d;
+        }
+        html, body { overflow-x: hidden; width: 100%; margin: 0; padding: 0; }
+        body { font-family: 'Pretendard', sans-serif; background-color: var(--bg-color); color: #fff; display: flex; justify-content: center; padding: 20px 10px; box-sizing: border-box; }
+        .calc-card { background: var(--card-bg); padding: 25px; border-radius: 15px; width: 100%; max-width: 500px; border: 1px solid #444; box-shadow: 0 10px 30px rgba(0,0,0,0.5); box-sizing: border-box; }
+        
+        /* 상단 크리에이터 정보 스타일 */
+        .creator-info { text-align: right; font-size: 0.7em; color: #888; margin-bottom: 5px; }
+        .creator-info strong { color: #bbb; }
+
+        h2 { text-align: center; color: var(--primary-color); margin-bottom: 20px; font-size: 1.4em; margin-top: 0; }
+        .section-title { font-size: 0.9em; color: var(--gold-color); margin: 20px 0 10px 0; font-weight: bold; border-bottom: 1px solid #444; padding-bottom: 5px; }
+        .grid-header { display: grid; grid-template-columns: 40px 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px; font-size: 0.75em; color: #888; text-align: center; }
+        .item-slot { display: grid; grid-template-columns: 40px 1fr 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+        .slot-idx { display: flex; align-items: center; justify-content: center; font-size: 0.8em; color: var(--npc-color); background: #363637; border-radius: 6px; }
+        input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input { width: 100%; padding: 12px 5px; box-sizing: border-box; background: #1a1a1b; border: 1px solid #555; color: #fff; border-radius: 8px; font-size: 14px; text-align: center; transition: border 0.2s; }
+        input:focus { border-color: var(--primary-color); outline: none; background: #222; }
+        .btn-calc { width: 100%; padding: 16px; background: var(--primary-color); color: white; border: none; border-radius: 10px; font-size: 1.1em; font-weight: bold; cursor: pointer; margin-top: 20px; transition: 0.2s; box-shadow: 0 4px 10px rgba(255, 62, 129, 0.3); }
+        .btn-calc:active { transform: scale(0.98); opacity: 0.9; }
+        .result-area { margin-top: 20px; padding: 15px; background: #1a1a1b; border-radius: 10px; border: 1px dashed #555; display: none; }
+        .rank-tabs { display: flex; gap: 5px; margin-bottom: 15px; }
+        .rank-btn { flex: 1; padding: 10px; border: 1px solid #555; background: #363637; color: #aaa; border-radius: 8px; cursor: pointer; font-size: 0.85em; font-weight: bold; }
+        .rank-btn.active { background: var(--npc-color); color: #1a1a1b; border-color: var(--npc-color); box-shadow: 0 0 10px rgba(0, 212, 255, 0.3); }
+        .result-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9em; }
+        .highlight { color: var(--point-color); font-weight: bold; }
+        .won-highlight { color: var(--gold-color); font-weight: bold; font-size: 1.2em; }
+        .reward-info-btn { text-align: center; font-size: 0.8em; color: var(--npc-color); text-decoration: underline; cursor: pointer; margin-top: 15px; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; z-index: 100; }
+        .modal-content { background: var(--card-bg); padding: 25px; border-radius: 15px; width: 300px; border: 1px solid var(--primary-color); box-shadow: 0 0 20px rgba(255, 62, 129, 0.2); }
+        .modal-content table { width: 100%; color: #eee; border-collapse: collapse; font-size: 0.9em; }
+        .modal-content td { padding: 10px; border-bottom: 1px solid #444; }
+        .close-btn { width: 100%; margin-top: 20px; padding: 12px; background: #555; border: none; color: white; border-radius: 8px; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="calc-card">
+    <div class="creator-info">문의, 오류 제보 인게임 <strong>플람라피스</strong></div>
+    
+    <h2>🛠️ 길드 납품 효율 계산기</h2>
+    <div class="section-title">📦 점수 / 거래소 가격 정보 입력 (최대 8개)</div>
+    <div class="grid-header"><div>#</div><div>점수</div><div>가격</div><div>최대수량</div></div>
+    <div id="inputSlots"></div>
+    <button class="btn-calc" onclick="startCalculate()">최적 조합 계산하기</button>
+
+    <div id="resultArea" class="result-area">
+        <div class="rank-tabs">
+            <button class="rank-btn active" onclick="changeRank(0)">1순위</button>
+            <button class="rank-btn" onclick="changeRank(1)">2순위</button>
+            <button class="rank-btn" onclick="changeRank(2)">3순위</button>
+        </div>
+        <div id="combinationList" style="margin-bottom: 15px;"></div>
+        <div id="summaryInfo" style="border-top: 1px solid #444; margin-top: 10px; padding-top: 15px;">
+            <div class="result-row"><span>최종 달성 점수:</span><span id="resScore" class="highlight">0점</span></div>
+            <div class="result-row"><span>1점당 평균 가격:</span><span id="resAvgCpp" style="color:var(--npc-color)">0 루노</span></div>
+            <div class="result-row" style="margin-top: 10px;"><span>최종 소요 비용:</span><span class="won-highlight" id="resCost">0 루노</span></div>
+            <div class="result-row"><span>예상 손익:</span><span id="profitStatus">0 루노</span></div>
+        </div>
+    </div>
+    <div class="reward-info-btn" onclick="openModal()">💰 납품 단계별 거래 가능 루노 보기</div>
+</div>
+
+<div id="rewardModal" class="modal"><div class="modal-content">
+    <h3 style="margin-top:0; color:var(--gold-color); text-align: center;">길드 납품 보상</h3>
+    <table>
+        <tr><td>2,000점</td><td style="text-align:right">1,800 루노</td></tr>
+        <tr><td>5,000점</td><td style="text-align:right">2,700 루노</td></tr>
+        <tr><td>10,000점</td><td style="text-align:right">4,500 루노</td></tr>
+        <tr><td>20,000점</td><td style="text-align:right">9,000 루노</td></tr>
+        <tr style="color:var(--point-color); font-weight:bold;"><td>합계</td><td style="text-align:right">18,000 루노</td></tr>
+    </table>
+    <button class="close-btn" onclick="closeModal()">닫기</button>
+</div></div>
+
+<script>
+    let allRanksData = [];
+
+    function filterKey(e) { if (["-", "+", "e", "E", "."].includes(e.key)) e.preventDefault(); }
+    function sanitizeInput(el) {
+        if (el.value === "") return;
+        let val = parseInt(el.value.replace(/[^0-9]/g, ''), 10);
+        if (isNaN(val)) val = 0;
+        el.value = val;
+    }
+
+    const slots = document.getElementById('inputSlots');
+    for(let i=1; i<=8; i++) {
+        slots.innerHTML += `<div class="item-slot"><div class="slot-idx">${i}</div>
+            <input type="number" id="s${i}" placeholder="점수" onkeydown="filterKey(event)" oninput="sanitizeInput(this)">
+            <input type="number" id="p${i}" placeholder="가격" onkeydown="filterKey(event)" oninput="sanitizeInput(this)">
+            <input type="number" id="q${i}" placeholder="∞" onkeydown="filterKey(event)" oninput="sanitizeInput(this)"></div>`;
+    }
+
+    function strictGreedyFill(target, pool, usedMap) {
+        let tCost = 0, tScore = 0, comb = [];
+        let rem = target;
+        for (let item of pool) {
+            if (rem <= 0) break;
+            let alreadyUsed = usedMap[item.id] || 0;
+            let available = Math.max(0, item.maxQty - alreadyUsed);
+            if (available <= 0) continue;
+            let need = Math.ceil(rem / item.score);
+            if (need <= available) {
+                let bestFinisher = { cost: need * item.price, item: item, count: need };
+                for (let other of pool) {
+                    let oUsed = usedMap[other.id] || 0;
+                    let oAvail = Math.max(0, other.maxQty - oUsed);
+                    let oNeed = Math.ceil(rem / other.score);
+                    if (oNeed <= oAvail) {
+                        let oCost = oNeed * other.price;
+                        if (oCost < bestFinisher.cost) bestFinisher = { cost: oCost, item: other, count: oNeed };
+                    }
+                }
+                comb.push({ id: bestFinisher.item.id, take: bestFinisher.count, score: bestFinisher.item.score, price: bestFinisher.item.price });
+                tCost += bestFinisher.cost;
+                tScore += (bestFinisher.count * bestFinisher.item.score);
+                rem = 0; break;
+            }
+            comb.push({ id: item.id, take: available, score: item.score, price: item.price });
+            tCost += (available * item.price);
+            tScore += (available * item.score);
+            rem -= (available * item.score);
+        }
+        return { comb, tCost, tScore };
+    }
+
+    function solveRank(target, pool, baseline) {
+        let best = baseline ? JSON.parse(JSON.stringify(baseline)) : { tCost: Infinity, comb: [], tScore: 0 };
+        if (pool.length === 0) return best;
+        const top = pool[0];
+        const rest = pool.slice(1);
+        let limit = Math.min(top.maxQty, Math.ceil(target / top.score));
+        for (let count = limit; count >= 1; count--) {
+            let usedMap = { [top.id]: count };
+            let cCost = count * top.price, cScore = count * top.score, rem = target - cScore;
+            let sub = rem > 0 ? strictGreedyFill(rem, rest, usedMap) : { comb: [], tCost: 0, tScore: 0 };
+            let totalCost = cCost + sub.tCost, totalScore = cScore + sub.tScore;
+            if (totalScore >= target && totalCost < best.tCost) {
+                let newComb = [{ id: top.id, take: count, score: top.score, price: top.price }];
+                sub.comb.forEach(c => { let ex = newComb.find(x => x.id === c.id); if(ex) ex.take += c.take; else newComb.push(c); });
+                best = { comb: newComb, tCost: totalCost, tScore: totalScore };
+            }
+        }
+        return best;
+    }
+
+    function startCalculate() {
+        let rawItems = [];
+        for (let i = 1; i <= 8; i++) {
+            const s = parseInt(document.getElementById(`s${i}`).value, 10);
+            const p = parseInt(document.getElementById(`p${i}`).value, 10);
+            let q = parseInt(document.getElementById(`q${i}`).value, 10);
+            if (s > 0 && p > 0) rawItems.push({ id: i, score: s, price: p, maxQty: (isNaN(q) || q <= 0) ? 9999999 : q, cpp: p / s });
+        }
+        if (rawItems.length === 0) return alert("납품 정보를 입력해주세요.");
+        rawItems.sort((a, b) => a.cpp - b.cpp);
+
+        let r3 = solveRank(20000, rawItems.slice(2), null);
+        let r2 = solveRank(20000, rawItems.slice(1), r3.tCost !== Infinity ? r3 : null);
+        let r1 = solveRank(20000, rawItems, r2.tCost !== Infinity ? r2 : null);
+
+        if (r2 && r1 && r2.tCost === r1.tCost) r2 = null;
+        if (r3 && r2 && r3.tCost === r2.tCost) r3 = null;
+        else if (r3 && r1 && r3.tCost === r1.tCost) r3 = null;
+
+        allRanksData = [r1, r2, r3];
+        allRanksData.forEach(d => { if(d && d.tScore > 0) d.avgCpp = d.tCost / d.tScore; });
+
+        document.getElementById('resultArea').style.display = 'block';
+        changeRank(0);
+    }
+
+    function changeRank(idx) {
+        const data = allRanksData[idx];
+        document.querySelectorAll('.rank-btn').forEach((btn, i) => btn.className = i === idx ? 'rank-btn active' : 'rank-btn');
+        const list = document.getElementById('combinationList');
+        const summary = document.getElementById('summaryInfo');
+
+        if (!data || data.tCost === Infinity) {
+            list.innerHTML = "<p style='text-align:center; padding:30px; color:#888; font-size:0.9em;'>해당 순위에 해당하는 최적의 조합이 없습니다.</p>";
+            summary.style.display = 'none';
+            return;
+        }
+
+        summary.style.display = 'block';
+        list.innerHTML = data.comb.map(i => `<div class="result-row"><span>#${i.id} (${i.score}점) × <strong>${i.take.toLocaleString()}개</strong></span><span>${(i.take * i.price).toLocaleString()} 루노</span></div>`).join('');
+        document.getElementById('resScore').innerText = data.tScore.toLocaleString() + " 점";
+        document.getElementById('resCost').innerText = data.tCost.toLocaleString() + " 루노";
+        document.getElementById('resAvgCpp').innerText = (data.avgCpp || 0).toFixed(2) + " 루노";
+        const profit = 18000 - data.tCost;
+        const ps = document.getElementById('profitStatus');
+        ps.innerText = (profit >= 0 ? "+" : "") + profit.toLocaleString() + " 루노";
+        ps.style.color = profit >= 0 ? "var(--point-color)" : "var(--error-color)";
+    }
+
+    function openModal() { document.getElementById('rewardModal').style.display = 'flex'; }
+    function closeModal() { document.getElementById('rewardModal').style.display = 'none'; }
+    window.onclick = function(e) { if(e.target == document.getElementById('rewardModal')) closeModal(); }
+</script>
+</body>
+</html>
