@@ -13,7 +13,6 @@
         body { font-family: 'Pretendard', sans-serif; background-color: var(--bg-color); color: #fff; display: flex; justify-content: center; padding: 20px 10px; box-sizing: border-box; }
         .calc-card { background: var(--card-bg); padding: 25px; border-radius: 15px; width: 100%; max-width: 500px; border: 1px solid #444; box-shadow: 0 10px 30px rgba(0,0,0,0.5); box-sizing: border-box; }
         
-        /* 상단 크리에이터 정보 스타일 */
         .creator-info { text-align: right; font-size: 0.7em; color: #888; margin-bottom: 5px; }
         .creator-info strong { color: #bbb; }
 
@@ -22,19 +21,30 @@
         .grid-header { display: grid; grid-template-columns: 40px 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px; font-size: 0.75em; color: #888; text-align: center; }
         .item-slot { display: grid; grid-template-columns: 40px 1fr 1fr 1fr; gap: 8px; margin-bottom: 8px; }
         .slot-idx { display: flex; align-items: center; justify-content: center; font-size: 0.8em; color: var(--npc-color); background: #363637; border-radius: 6px; }
+        
         input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         input { width: 100%; padding: 12px 5px; box-sizing: border-box; background: #1a1a1b; border: 1px solid #555; color: #fff; border-radius: 8px; font-size: 14px; text-align: center; transition: border 0.2s; }
         input:focus { border-color: var(--primary-color); outline: none; background: #222; }
+
         .btn-calc { width: 100%; padding: 16px; background: var(--primary-color); color: white; border: none; border-radius: 10px; font-size: 1.1em; font-weight: bold; cursor: pointer; margin-top: 20px; transition: 0.2s; box-shadow: 0 4px 10px rgba(255, 62, 129, 0.3); }
         .btn-calc:active { transform: scale(0.98); opacity: 0.9; }
+
+        /* 개별 효율 리스트 스타일 */
+        .efficiency-list { margin-top: 15px; display: none; background: #222; border-radius: 10px; padding: 10px; border: 1px solid #444; }
+        .eff-item { display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #333; font-size: 0.85em; }
+        .eff-item:last-child { border-bottom: none; }
+        .best-badge { background: var(--point-color); color: #1a1a1b; font-size: 0.7em; padding: 2px 6px; border-radius: 4px; font-weight: bold; margin-left: 5px; }
+
         .result-area { margin-top: 20px; padding: 15px; background: #1a1a1b; border-radius: 10px; border: 1px dashed #555; display: none; }
         .rank-tabs { display: flex; gap: 5px; margin-bottom: 15px; }
         .rank-btn { flex: 1; padding: 10px; border: 1px solid #555; background: #363637; color: #aaa; border-radius: 8px; cursor: pointer; font-size: 0.85em; font-weight: bold; }
         .rank-btn.active { background: var(--npc-color); color: #1a1a1b; border-color: var(--npc-color); box-shadow: 0 0 10px rgba(0, 212, 255, 0.3); }
+        
         .result-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9em; }
         .highlight { color: var(--point-color); font-weight: bold; }
         .won-highlight { color: var(--gold-color); font-weight: bold; font-size: 1.2em; }
         .reward-info-btn { text-align: center; font-size: 0.8em; color: var(--npc-color); text-decoration: underline; cursor: pointer; margin-top: 15px; }
+
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; z-index: 100; }
         .modal-content { background: var(--card-bg); padding: 25px; border-radius: 15px; width: 300px; border: 1px solid var(--primary-color); box-shadow: 0 0 20px rgba(255, 62, 129, 0.2); }
         .modal-content table { width: 100%; color: #eee; border-collapse: collapse; font-size: 0.9em; }
@@ -46,12 +56,18 @@
 
 <div class="calc-card">
     <div class="creator-info">문의, 오류 제보 인게임 <strong>플람라피스</strong></div>
-    
     <h2>🛠️ 길드 납품 효율 계산기</h2>
+    
     <div class="section-title">📦 점수 / 거래소 가격 정보 입력 (최대 8개)</div>
     <div class="grid-header"><div>#</div><div>점수</div><div>가격</div><div>최대수량</div></div>
     <div id="inputSlots"></div>
+    
     <button class="btn-calc" onclick="startCalculate()">최적 조합 계산하기</button>
+
+    <div id="efficiencyArea" class="efficiency-list">
+        <div style="font-size: 0.8em; color: var(--gold-color); margin-bottom: 8px; font-weight: bold;">🔍 개별 물품 효율 (1점당 루노)</div>
+        <div id="efficiencyContent"></div>
+    </div>
 
     <div id="resultArea" class="result-area">
         <div class="rank-tabs">
@@ -67,7 +83,8 @@
             <div class="result-row"><span>예상 손익:</span><span id="profitStatus">0 루노</span></div>
         </div>
     </div>
-    <div class="reward-info-btn" onclick="openModal()">💰 납품 단계별 거래 가능 루노 보기</div>
+    
+    <div class="reward-info-btn" onclick="openModal()">💰 단계별 거래 가능 루노 합계 보기</div>
 </div>
 
 <div id="rewardModal" class="modal"><div class="modal-content">
@@ -162,9 +179,25 @@
             let q = parseInt(document.getElementById(`q${i}`).value, 10);
             if (s > 0 && p > 0) rawItems.push({ id: i, score: s, price: p, maxQty: (isNaN(q) || q <= 0) ? 9999999 : q, cpp: p / s });
         }
-        if (rawItems.length === 0) return alert("납품 정보를 입력해주세요.");
-        rawItems.sort((a, b) => a.cpp - b.cpp);
+        if (rawItems.length === 0) return alert("데이터를 입력해주세요.");
 
+        // 개별 효율 표시 로직
+        const sortedForEff = [...rawItems].sort((a, b) => a.cpp - b.cpp);
+        const effArea = document.getElementById('efficiencyArea');
+        const effContent = document.getElementById('efficiencyContent');
+        effArea.style.display = 'block';
+        effContent.innerHTML = sortedForEff.map((item, idx) => {
+            const isProfit = (item.cpp * 20000) <= 18000;
+            return `
+                <div class="eff-item">
+                    <span>#${item.id} 물품 <small>(${item.score}점)</small> ${idx === 0 ? '<span class="best-badge">BEST</span>' : ''}</span>
+                    <span style="color:${isProfit ? 'var(--point-color)' : 'var(--error-color)'}">${item.cpp.toFixed(2)} 루노</span>
+                </div>
+            `;
+        }).join('');
+
+        // 최적 조합 계산 로직 (기존 유지)
+        rawItems.sort((a, b) => a.cpp - b.cpp);
         let r3 = solveRank(20000, rawItems.slice(2), null);
         let r2 = solveRank(20000, rawItems.slice(1), r3.tCost !== Infinity ? r3 : null);
         let r1 = solveRank(20000, rawItems, r2.tCost !== Infinity ? r2 : null);
